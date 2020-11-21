@@ -116,7 +116,7 @@ def main():
     parser.add_argument('--epochs', type=int, default=10, metavar='N',
                         help='number of epochs to train (default: 10)')
     parser.add_argument('--lr', type=float, default=2e-4, metavar='LR')
-    parser.add_argument('--gpu_id', type=str, default=0,
+    parser.add_argument('--gpu_id', type=str, default='0',
                         help='cuda device id')
     parser.add_argument('--seed', type=int, default=1, metavar='S',
                         help='random seed (default: 1)')
