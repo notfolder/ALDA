@@ -31,7 +31,7 @@ def image_classification_test(loader, model, test_10crop=True):
                 inputs = [data[j][0] for j in range(10)]
                 labels = data[0][1]
                 for j in range(10):
-                    inputs[j] = inputs[j].cuda()
+                    inputs[j] = inputs[j].to(network.dev)
                 labels = labels
                 outputs = []
                 for j in range(10):
@@ -52,7 +52,7 @@ def image_classification_test(loader, model, test_10crop=True):
                 data = iter_test.next()
                 inputs = data[0]
                 labels = data[1]
-                inputs = inputs.cuda()
+                inputs = inputs.to(network.dev)
                 feature, outputs = model(inputs)
                 outputs = nn.Softmax(dim=1)(outputs)
                 if start_test:
@@ -75,7 +75,7 @@ def image_label(loader, model, threshold=0.9, out_dir=None):
         with open(out_path, 'w') as f:
             for i in range(len(loader['target_label'])):
                 inputs, labels, paths = iter_label.next()
-                inputs = inputs.cuda()
+                inputs = inputs.to(network.dev)
                 _, outputs = model(inputs)
                 softmax_outputs = nn.Softmax(dim=1)(outputs)
                 maxpred, pseudo_labels = torch.max(softmax_outputs, dim=1)
@@ -140,7 +140,7 @@ def train(config):
     ## set base network
     net_config = config["network"]
     base_network = net_config["name"](**net_config["params"])
-    base_network = base_network.cuda()
+    base_network = base_network.to(network.dev)
     if config["restore_path"]:
         checkpoint = torch.load(osp.join(config["restore_path"], "best_model.pth"))["base_network"]
         ckp = {}
@@ -160,7 +160,7 @@ def train(config):
         ad_net = network.Multi_AdversarialNetwork(base_network.output_num(), 1024, class_num)
     else:
         ad_net = network.AdversarialNetwork(base_network.output_num(), 1024)
-    ad_net = ad_net.cuda()
+    ad_net = ad_net.to(network.dev)
     parameter_list = base_network.get_parameters() + ad_net.get_parameters()
  
     ## set optimizer
@@ -249,7 +249,7 @@ def train(config):
             iter_target = iter(dset_loaders["target"])
         inputs_source, labels_source = iter_source.next()
         inputs_target, labels_target = iter_target.next()
-        inputs_source, inputs_target, labels_source = Variable(inputs_source).cuda(), Variable(inputs_target).cuda(), Variable(labels_source).cuda()
+        inputs_source, inputs_target, labels_source = Variable(inputs_source).to(network.dev), Variable(inputs_target).to(network.dev), Variable(labels_source).to(network.dev)
         features_source, outputs_source = base_network(inputs_source)
         if args.source_detach:
             features_source = features_source.detach()
@@ -282,7 +282,7 @@ def train(config):
             transfer_loss += loss_params["trade_off"] * loss.SelfTraining_loss(outputs, softmax_out, config['threshold'])
         # off-line self-training
         elif 'PseudoLabel' in config['method']:
-            labels_target = labels_target.cuda()
+            labels_target = labels_target.to(network.dev)
             if begin_label:
                 transfer_loss += loss_params["trade_off"] * nn.CrossEntropyLoss(ignore_index=-1)(outputs_target, labels_target)
             else:
@@ -334,8 +334,7 @@ if __name__ == "__main__":
     parser.add_argument('--adv_weight', type=float, default=1.0, help="weight of adversarial loss")
     parser.add_argument('--source_detach', default=False, type=str2bool, help="detach source feature from the adversarial learning")
     args = parser.parse_args()
-    os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_id
-    #os.environ["CUDA_VISIBLE_DEVICES"] = '0,1,2,3'
+    network.set_device(args.gpu_id)
 
     #set seed
     random.seed(args.seed)

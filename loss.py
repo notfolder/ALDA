@@ -4,6 +4,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 import math
 import torch.nn.functional as F
+import network
 
 def kl_div_with_logit(q_logit, p_logit):
 
@@ -42,7 +43,7 @@ def DANN(features, ad_net):
     """
     ad_out = ad_net(features)
     batch_size = ad_out.size(0) // 2
-    dc_target = torch.from_numpy(np.array([[1]] * batch_size + [[0]] * batch_size)).float().cuda()
+    dc_target = torch.from_numpy(np.array([[1]] * batch_size + [[0]] * batch_size)).float().to(network.dev)
     return nn.BCELoss()(ad_out, dc_target)
 
 def create_matrix(n):
@@ -61,7 +62,7 @@ def create_matrix(n):
                 a[i,j]=1
             else:
                 a[i,j]=-1/(n-1)
-    return torch.from_numpy(a).cuda()
+    return torch.from_numpy(a).to(network.dev)
 
 def ALDA_loss(ad_out_score, labels_source, softmax_out, weight_type=1, threshold=0.9):
     """
@@ -91,7 +92,7 @@ def ALDA_loss(ad_out_score, labels_source, softmax_out, weight_type=1, threshold
     preds_target_mask = torch.where(target_mask.unsqueeze(1), preds_target_mask, torch.zeros(1).to(ad_out.device))
     # construct the confusion matrix from ad_out. See the paper for more details.
     confusion_matrix = create_matrix(class_num)
-    ant_eye = (1-torch.eye(class_num)).cuda().unsqueeze(0)
+    ant_eye = (1-torch.eye(class_num)).to(network.dev).unsqueeze(0)
     confusion_matrix = ant_eye/(class_num-1) + torch.mul(confusion_matrix.unsqueeze(0), ad_out.unsqueeze(1)) #(2*batch_size, class_num, class_num)
     preds_mask = torch.cat([preds_source_mask, preds_target_mask], dim=0) #labels_source_mask
     loss_pred = torch.mul(confusion_matrix, preds_mask.unsqueeze(1)).sum(dim=2)

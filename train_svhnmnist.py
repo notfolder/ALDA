@@ -32,9 +32,9 @@ def train(args, model, ad_net, train_loader, train_loader1, optimizer, optimizer
         if batch_idx % len_target == 0:
             iter_target = iter(train_loader1)
         data_source, label_source = iter_source.next()
-        data_source, label_source = data_source.cuda(), label_source.cuda()
+        data_source, label_source = data_source.to(network.dev), label_source.to(network.dev)
         data_target, label_target = iter_target.next()
-        data_target = data_target.cuda()
+        data_target = data_target.to(network.dev)
         optimizer.zero_grad()
         optimizer_ad.zero_grad()
         feature, output = model(torch.cat((data_source, data_target), 0))
@@ -86,7 +86,7 @@ def test(args, model, test_loader):
     test_loss = 0
     correct = 0
     for data, target in test_loader:
-        data, target = data.cuda(), target.cuda()
+        data, target = data.to(network.dev), target.to(network.dev)
         feature, output = model(data)
         test_loss += nn.CrossEntropyLoss()(output, target).item()
         pred = output.data.cpu().max(1, keepdim=True)[1]
@@ -107,7 +107,7 @@ def main():
         else:
             raise argparse.ArgumentTypeError('Unsupported value encountered.')
     parser = argparse.ArgumentParser(description='ALDA SVHN2MNIST')
-    parser.add_argument('method', type=str, default='ALDA', choices=['DANN', "ALDA"])
+    parser.add_argument('--method', type=str, default='ALDA', choices=['DANN', "ALDA"])
     parser.add_argument('--task', default='SVHN2MNIST', help='task to perform')
     parser.add_argument('--batch_size', type=int, default=64,
                         help='input batch size for training (default: 64)')
@@ -117,7 +117,7 @@ def main():
                         help='number of epochs to train (default: 10)')
     parser.add_argument('--lr', type=float, default=2e-4, metavar='LR')
     parser.add_argument('--gpu_id', type=str, default='0',
-                        help='cuda device id')
+                        help='cuda network.device id')
     parser.add_argument('--seed', type=int, default=1, metavar='S',
                         help='random seed (default: 1)')
     parser.add_argument('--log_interval', type=int, default=1000,
@@ -131,8 +131,9 @@ def main():
     parser.add_argument('--num_worker', type=int, default=4)
     args = parser.parse_args()
 
+    network.set_device(args.gpu_id)
+
     torch.manual_seed(args.seed)
-    os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_id
 
     source_list = './data/svhn2mnist/svhn_balanced.txt'
     target_list = './data/svhn2mnist/mnist_train.txt'
@@ -164,14 +165,14 @@ def main():
         batch_size=args.test_batch_size, shuffle=False, num_workers=args.num_worker, pin_memory=True)
 
     model = network.SVHN_EnsembNet()
-    model = model.cuda()
+    model = model.to(network.dev)
     class_num = 10
 
     if args.method == "ALDA":
         ad_net = network.Multi_AdversarialNetwork(model.output_num(), 500, class_num)
     elif args.method == "DANN":
         ad_net = network.AdversarialNetwork(model.output_num(), 500)
-    ad_net = ad_net.cuda()
+    ad_net = ad_net.to(network.dev)
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=0.0005)
     optimizer_ad = optim.Adam(ad_net.parameters(), lr=args.lr, weight_decay=0.0005)
 
@@ -183,7 +184,7 @@ def main():
         print("checkpoint dir exists, which will be removed")
         import shutil
         shutil.rmtree(output_path, ignore_errors=True)
-    os.mkdir(output_path)
+    os.makedirs(output_path, exist_ok=True)
 
     for epoch in range(1, args.epochs + 1):
         if epoch % 3 == 0:

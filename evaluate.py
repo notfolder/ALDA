@@ -129,7 +129,7 @@ def image_classification_test(loader, model, test_10crop=True):
                 inputs = [data[j][0] for j in range(10)]
                 labels = data[0][1]
                 for j in range(10):
-                    inputs[j] = inputs[j].cuda()
+                    inputs[j] = inputs[j].to(network.dev)
                 labels = labels
                 outputs = []
                 for j in range(10):
@@ -149,7 +149,7 @@ def image_classification_test(loader, model, test_10crop=True):
                 data = iter_test.next()
                 inputs = data[0]
                 labels = data[1]
-                inputs = inputs.cuda()
+                inputs = inputs.to(network.dev)
                 _, outputs = model(inputs)
                 if start_test:
                     all_output = outputs.float().cpu()
@@ -211,7 +211,7 @@ def evaluate(config):
     ## set base network
     net_config = config["network"]
     base_network = net_config["name"](**net_config["params"])
-    base_network = base_network.cuda()
+    base_network = base_network.to(network.dev)
     if config["restore_path"]:
         checkpoint = torch.load(osp.join(config["restore_path"], "best_model.pth"))
         base_network.load_state_dict(checkpoint)

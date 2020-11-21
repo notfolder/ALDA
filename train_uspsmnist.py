@@ -33,9 +33,9 @@ def train(args, model, ad_net, train_loader, train_loader1, optimizer, optimizer
         if batch_idx % len_target == 0:
             iter_target = iter(train_loader1)
         data_source, label_source = iter_source.next()
-        data_source, label_source = data_source.cuda(), label_source.cuda()
+        data_source, label_source = data_source.to(network.dev), label_source.to(network.dev)
         data_target, label_target = iter_target.next()
-        data_target = data_target.cuda()
+        data_target = data_target.to(network.dev)
         optimizer.zero_grad()
         optimizer_ad.zero_grad()
         features_source, outputs_source = model(data_source)
@@ -90,7 +90,7 @@ def test(args, model, test_loader):
     test_loss = 0
     correct = 0
     for data, target in test_loader:
-        data, target = data.cuda(), target.cuda()
+        data, target = data.to(network.dev), target.to(network.dev)
         feature, output = model(data)
         test_loss += nn.CrossEntropyLoss()(output, target).item()
         pred = output.data.cpu().max(1, keepdim=True)[1]
@@ -137,7 +137,7 @@ def main():
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
-    os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_id
+    network.set_device(args.gpu_id)
 
     if args.task == 'USPS2MNIST':
         source_list = './data/usps2mnist/usps_train.txt'
@@ -181,7 +181,7 @@ def main():
         batch_size=args.test_batch_size, shuffle=False, num_workers=args.num_worker, pin_memory=True)
 
     model = network.USPS_EnsembNet()
-    model = model.cuda()
+    model = model.to(network.dev)
     class_num = 10
 
     random_layer = None
@@ -189,7 +189,7 @@ def main():
         ad_net = network.Multi_AdversarialNetwork(model.output_num(), 500, class_num)
     elif args.method == "DANN":
         ad_net = network.AdversarialNetwork(model.output_num(), 500)
-    ad_net = ad_net.cuda()
+    ad_net = ad_net.to(network.dev)
     if args.task == 'USPS2MNIST':
         args.lr = 2e-4
     else:
